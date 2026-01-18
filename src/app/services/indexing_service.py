@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ..core.retrieval.vector_store import index_documents
+from ..core.retrieval import index_documents
 
 def index_pdf_file(file_path: Path) -> int:
   """Load a PDF from disk and index it into the vector DB.
