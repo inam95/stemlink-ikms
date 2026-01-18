@@ -2,7 +2,7 @@ from .prompts import RETRIEVAL_SYSTEM_PROMPT, SUMMARIZATION_SYSTEM_PROMPT, VERIF
 from .tools import retrieval_tool
 from .agents import retrieval_agent, summarization_agent, verification_agent
 from .state import QAState
-from .graph import run_qa_flow
+from .graph import run_qa_flow, stream_qa_flow
 
 
-__all__ = ["RETRIEVAL_SYSTEM_PROMPT", "SUMMARIZATION_SYSTEM_PROMPT", "VERIFICATION_SYSTEM_PROMPT", "retrieval_tool", "retrieval_agent", "summarization_agent", "verification_agent", "QAState", "run_qa_flow"]
+__all__ = ["RETRIEVAL_SYSTEM_PROMPT", "SUMMARIZATION_SYSTEM_PROMPT", "VERIFICATION_SYSTEM_PROMPT", "retrieval_tool", "retrieval_agent", "summarization_agent", "verification_agent", "QAState", "run_qa_flow", "stream_qa_flow"]

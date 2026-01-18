@@ -97,6 +97,9 @@ def verification_node(state: QAState) -> QAState:
   - Sends question + context + draft_answer to the Verification Agent.
   - Agent checks for hallucinations and unsupported claims.
   - Stores the final verified answer in `state["answer"]`.
+
+  Note: For streaming support, this node calls the LLM directly instead of
+  using the agent wrapper, as agent invoke() doesn't support token streaming.
   """
   question = state["question"]
   context = state.get("context", "")
@@ -111,12 +114,15 @@ def verification_node(state: QAState) -> QAState:
 
     Please verify and correct the draft answer, removing any unsupported claims."""
 
-  result = verification_agent.invoke(
-    {"messages": [HumanMessage(content=user_content)]}
-  )
 
-  messages = result.get("messages", [])
-  answer = _extract_last_ai_content(messages)
+  messages = [
+    {"role": "system", "content": VERIFICATION_SYSTEM_PROMPT},
+    {"role": "user", "content": user_content}
+  ]
+
+  llm = create_chat_model()
+  response = llm.invoke(messages)
+  answer = response.content
 
   return {
     "answer": answer,
