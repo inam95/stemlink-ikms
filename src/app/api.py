@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from .services.indexing_service import index_pdf_file
 from .models import QAResponse, QuestionRequest
+from .services.qa_service import answer_question
 
 app = FastAPI(
   title="IKMS (Information Knowledge Management System)",
@@ -57,10 +58,10 @@ async def qa_endpoint(payload: QuestionRequest) -> QAResponse:
       detail="`question` must be a non-empty string.",
     )
 
-  # result = answer_question(question)
+  result = answer_question(question)
   result = {
-    "answer": "This is a placeholder answer.",
-    "context": "This is a placeholder context.",
+    "answer": result.get("answer", ""),
+    "context": result.get("context", ""),
   }
 
   return QAResponse(
