@@ -1,6 +1,7 @@
 # IKMS Backend - Intelligent Knowledge Management System
 
 FastAPI backend with a **4-agent RAG pipeline** featuring query planning and decomposition for enhanced information retrieval.
+Uploaded and Indexed PDF file is [here](data/uploads/pinecone_vector_database.pdf)
 
 ## 🚀 Feature: Query Planning & Decomposition Agent
 
