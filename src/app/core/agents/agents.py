@@ -1,9 +1,10 @@
 """Agent implementations for the multi-agent RAG flow.
 
-This module defines three LangChain agents (Retrieval, Summarization,
+This module defines four LangChain agents (Planning, Retrieval, Summarization,
 Verification) and thin node functions that LangGraph uses to invoke them.
 """
 
+import json
 from typing import List
 
 from langchain.agents import create_agent
@@ -11,7 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ..llm import create_chat_model
 from .tools import retrieval_tool
-from .prompts import RETRIEVAL_SYSTEM_PROMPT, SUMMARIZATION_SYSTEM_PROMPT, VERIFICATION_SYSTEM_PROMPT
+from .prompts import PLANNING_SYSTEM_PROMPT, RETRIEVAL_SYSTEM_PROMPT, SUMMARIZATION_SYSTEM_PROMPT, VERIFICATION_SYSTEM_PROMPT
 from .state import QAState
 
 def _extract_last_ai_content(messages: List[object]) -> str:
@@ -22,6 +23,12 @@ def _extract_last_ai_content(messages: List[object]) -> str:
   return ""
 
 # Define agents at module level for reuse
+planning_agent = create_agent(
+  model=create_chat_model(),
+  tools=[],
+  system_prompt=PLANNING_SYSTEM_PROMPT,
+)
+
 retrieval_agent = create_agent(
   model=create_chat_model(),
   tools=[retrieval_tool],
@@ -40,27 +47,80 @@ verification_agent = create_agent(
   system_prompt=VERIFICATION_SYSTEM_PROMPT,
 )
 
-def retrieval_node(state: QAState) -> QAState:
-  """Retrieval Agent node: gathers context from vector store.
+def planning_node(state: QAState) -> QAState:
+  """Planning Agent node: analyzes question and generates search plan.
 
   This node:
-  - Sends the user's question to the Retrieval Agent.
-  - The agent uses the attached retrieval tool to fetch document chunks.
-  - Extracts the tool's content (CONTEXT string) from the ToolMessage.
-  - Stores the consolidated context string in `state["context"]`.
+  - Sends the user's question to the Planning Agent.
+  - Agent analyzes complexity and decomposes into sub-questions.
+  - Extracts structured plan (JSON) from the response.
+  - Stores plan and sub_questions in state.
   """
 
   question = state["question"]
 
-  result = retrieval_agent.invoke({"messages": [HumanMessage(content=question)]})
+  result = planning_agent.invoke({"messages": [HumanMessage(content=question)]})
   messages = result.get("messages", [])
-  context = ""
 
-   # Prefer the last ToolMessage content (from retrieval_tool)
-  for msg in reversed(messages):
+  # Extract the last AI message content
+  plan_output = _extract_last_ai_content(messages)
+
+  # Parse the JSON output
+  plan = None
+  sub_questions = None
+
+  try:
+    parsed = json.loads(plan_output)
+    plan = parsed.get("plan", "")
+    sub_questions = parsed.get("sub_questions", [])
+  except json.JSONDecodeError:
+    # Fallback: if JSON parsing fails, use original question as single sub-question
+    plan = "Unable to parse plan. Using original question for retrieval."
+    sub_questions = [question]
+
+  return {
+    "plan": plan,
+    "sub_questions": sub_questions,
+  }
+
+def retrieval_node(state: QAState) -> QAState:
+  """Retrieval Agent node: gathers context from vector store.
+
+  This node:
+  - Checks if sub_questions exist from planning phase.
+  - If yes: executes retrieval for each sub-question and aggregates results.
+  - If no: falls back to single retrieval with original question.
+  - Deduplicates chunks to avoid redundant context.
+  - Stores the consolidated context string in `state["context"]`.
+  """
+
+  question = state["question"]
+  sub_questions = state.get("sub_questions", [])
+
+  all_contexts = []
+  seen_chunks = set()  # Track unique chunks by content hash
+
+  # Use sub-questions if available, otherwise use original question
+  queries = sub_questions if sub_questions else [question]
+
+  for query in queries:
+    result = retrieval_agent.invoke({"messages": [HumanMessage(content=query)]})
+    messages = result.get("messages", [])
+
+    # Extract context from ToolMessage
+    for msg in reversed(messages):
       if isinstance(msg, ToolMessage):
-        context = str(msg.content)
+        chunk_content = str(msg.content)
+
+        # Simple deduplication by content hash
+        content_hash = hash(chunk_content)
+        if content_hash not in seen_chunks:
+          seen_chunks.add(content_hash)
+          all_contexts.append(chunk_content)
         break
+
+  # Combine all unique contexts
+  context = "\n\n---\n\n".join(all_contexts) if all_contexts else ""
 
   return {
     "context": context,

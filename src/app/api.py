@@ -59,14 +59,12 @@ async def qa_endpoint(payload: QuestionRequest) -> QAResponse:
     )
 
   result = answer_question(question)
-  result = {
-    "answer": result.get("answer", ""),
-    "context": result.get("context", ""),
-  }
 
   return QAResponse(
     answer=result.get("answer", ""),
     context=result.get("context", ""),
+    plan=result.get("plan"),
+    sub_questions=result.get("sub_questions"),
   )
 
 
@@ -91,11 +89,34 @@ async def qa_stream_endpoint(payload: QuestionRequest) -> StreamingResponse:
     )
 
   async def event_generator():
-    """Generate SSE events for streaming the answer."""
+    """Generate SSE events for streaming the answer with plan, context, and reasoning."""
     try:
+      # First, run the full QA flow to get plan, context, and draft answer
+      result = answer_question(question)
+      plan = result.get("plan", "")
+      sub_questions = result.get("sub_questions", [])
+      context = result.get("context", "")
+      draft_answer = result.get("draft_answer", "")
+
+      # 1. Emit plan first - shows search strategy
+      if plan:
+        import json
+        plan_data = json.dumps({"plan": plan, "sub_questions": sub_questions})
+        yield f"data: [PLAN]{plan_data}\n\n"
+
+      # 2. Emit reasoning (draft answer) second - "Thinking"
+      if draft_answer:
+        yield f"data: [REASONING]{draft_answer}\n\n"
+
+      # 3. Emit context third
+      if context:
+        yield f"data: [CONTEXT]{context}\n\n"
+
+      # 4. Stream the final answer tokens last
       async for token in stream_answer(question):
         # Send each token as an SSE event
         yield f"data: {token}\n\n"
+
       # Signal completion
       yield "data: [DONE]\n\n"
     except Exception as e:
