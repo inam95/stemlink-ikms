@@ -1,7 +1,7 @@
 # IKMS Backend - Intelligent Knowledge Management System
 
 FastAPI backend with a **4-agent RAG pipeline** featuring query planning and decomposition for enhanced information retrieval.
-Uploaded and Indexed PDF file is [here](data/uploads/pinecone_vector_database.pdf)
+Uploaded and Indexed PDF file is [here](https://github.com/inam95/stemlink-ikms/blob/main/data/uploads/pinecone_vector_database.pdf)
 
 ## 🚀 Feature: Query Planning & Decomposition Agent
 
@@ -81,7 +81,7 @@ The retrieval agent then executes 3 separate searches, ensuring all aspects are 
 
 ### Results
 
-See [before-after-results.md](../before-after-results.md) for detailed comparison showing:
+See [before-after-results.md](https://github.com/inam95/stemlink-ikms/blob/main/before-after-results.md) for detailed comparison showing:
 
 - ✅ 5/5 questions answered comprehensively (vs. 3/5 before)
 - ✅ Complex multi-part questions now receive complete coverage
